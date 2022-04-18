@@ -47,9 +47,25 @@ mod reqwest_support {
         {
             let mut url = reqwest::Url::parse(method_url.as_ref()).expect("Unable to parse url");
 
-            url.query_pairs_mut().extend_pairs(params);
+            let mut token = None;
+            {
+                let mut qp = url.query_pairs_mut();
+                for param in params {
+                    let (k, v) = param.borrow();
+                    if k.as_ref() == "token" {
+                        token = Some(v.as_ref().to_owned());
+                        continue;
+                    }
+                    qp.append_pair(k.as_ref(), v.as_ref());
+                }
+            }
 
-            Ok(self.get(url).send().await?.text().await?)
+            let mut req = self.get(url);
+            if let Some(token) = token {
+                req = req.bearer_auth(token);
+            };
+
+            Ok(req.send().await?.text().await?)
         }
     }
 
